@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Candle Chart</title>
+  <script src="./js/common/pixi-legacy.min.js"></script>
+  <script src="./js/common/gsap.min.js"></script>
+  <script src="./js/common/moment.min.js"></script>
+  <script src="./js/common/hammer.min.js"></script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+    }
+
+    canvas {
+      display: block;
+    }
+
+    #loading {
+      position: fixed;
+      top: 0;
+      bottom: 0;
+      right: 0;
+      left: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: 0.3s;
+    }
+  </style>
+</head>
+
+<body style="width: 100%; height: 100%;">
+  <div id="main" style="overflow: hidden; height: 100vh; width: 100vw;">
+    <canvas id="chart"></canvas>｀
+    <div id="loading">
+      <img src="./images/loading.svg">
+    </div>
+  </div>
+
+  <script src="./js/getUrlParams.js"></script>
+  <script src="./js/ws_candle.js"></script>
+  <script src="./js/chart_candle.js"></script>
+  <script src="./js/main.js"></script>
+
+  <!-- ws run -->
+  <script>
+    const url_params = getAllUrlParams(window.location.href)
+
+    // const url = window.location.host
+    const option = {
+      // url: window.location.protocol === 'https:' ? `wss://${url}/socket` : `ws://${url}/socket`,
+      url: 'wss://demo.yinunite.com/socket',
+      market_id: parseInt(url_params.item),
+      type: 2
+    }
+    // const ws = new WS(option.url, option.market_id, option.type)
+    // ws.start()
+
+    // if(option.type !== '1') {
+    //   const realTimeWs = new WS(option.url, option.market_id, '1')
+    //   realTimeWs.start()
+    // }
+  </script>
+  <!-- ws run over -->
+
+  <!-- brower active -->
+  <script>
+    let active = true
+    var hidden, visibilityChange
+
+    if (typeof document.hidden !== 'undefined') {
+      hidden = 'hidden'
+      visibilityChange = 'visibilitychange'
+    } else if (typeof document.mozHidden !== 'undefined') { // Firefox up to v17
+      hidden = 'mozHidden'
+      visibilityChange = 'mozvisibilitychange'
+    } else if (typeof document.webkitHidden !== 'undefined') { // Chrome up to v32, Android up to v4.4, Blackberry up to v10
+      hidden = 'webkitHidden'
+      visibilityChange = 'webkitvisibilitychange'
+    }
+
+    if (typeof document.addEventListener === 'undefined' || typeof document[hidden] === 'undefined') {
+      alert('This demo requires a modern browser that supports the Page Visibility API.')
+    } else {
+      document.addEventListener(visibilityChange, handleVisibilityChange, false)
+    }
+
+    async function handleVisibilityChange() {
+      if (document[hidden]) {
+        active = false
+        windowHidden()
+      } else {
+        active = true
+        windowVisible()
+      }
+    }
+  </script>
+  <!-- brower active over -->
+
+  <!-- pixijs -->
+  <script>
+    function init() {
+      let pan = false
+
+      window.onresize = () => {
+        chart.windowResize()
+      }
+
+      // 互動 - mobile
+      const canvas = document.getElementById('chart')
+      const hammerOnTap = event => chart.hammerOnTap(event, chartData, tradeData)
+      const hammerOnPanStart = event => {
+        chart.hammerOnPanStart(event)
+        pan = true
+      }
+      const hammerOnPanMove = event => chart.hammerOnPanMove(event, chartData, tradeData)
+      const hammerOnPanEnd = () => {
+        chart.hammerOnPanEnd()
+        pan = false
+      }
+      const hammerOnZoomStart = event => {
+        chart.hammerOnZoomStart(event)
+        pan = true
+      }
+      const hammerOnZoomMove = event => chart.hammerOnZoomMove(event, chartData, tradeData)
+      const hammerOnZoomEnd = event => {
+        chart.hammerOnZoomEnd()
+        pan = false
+      }
+
+      const mc = new Hammer(canvas)
+      mc.add(new Hammer.Pinch({ threshold: 0 }))
+      mc.on('tap', hammerOnTap)
+        .on('panstart', hammerOnPanStart)
+        .on('panmove', hammerOnPanMove)
+        .on('panend', hammerOnPanEnd)
+        .on('pinchstart', hammerOnZoomStart)
+        .on('pinchmove', hammerOnZoomMove)
+        .on('pinchend', hammerOnZoomEnd)
+
+      // 互動 - computer
+      const computerOnZoom = event => {
+        chart.computerOnZoom(event, chartData, tradeData)
+        event.preventDefault();
+      }
+      const computerOnMove = event => {
+        if (!pan) {
+          chart.computerOnMove(event, chartData, tradeData)
+        }
+      }
+      const computerOnOut = () => chart.computerOnOut()
+
+      canvas.addEventListener('mousewheel', computerOnZoom)
+      canvas.addEventListener('mousemove', computerOnMove)
+      canvas.addEventListener('mouseout', computerOnOut)
+    }
+
+    function chartRealtime() {
+      chart.updateRealtime(chartData, tradeData, chartData.length - 1)
+    }
+
+    function chartRealtimeTab() {
+      chart.updateRealtimeTab(chartData, tradeData, chartData.length - 1)
+    }
+
+    function chartUpdate() {
+      chart.updateNewData(chartData, tradeData, chartData.length - 1)
+    }
+
+    function chartUpdateTab() {
+      chart.updateNewDataTab(chartData, tradeData, chartData.length - 1)
+    }
+
+    function windowHidden() {
+      chart.windowHidden()
+    }
+
+    function windowVisible() {
+      chart.windowVisible(chartData, tradeData)
+    }
+  </script>
+  <!-- pixijs over -->
+
+  <!-- data -->
+  <script>
+    const json = '[{"market_id":15,"type":"2","time":1655708340,"value":20135.82,"open":20135.82,"high":20141.83,"low":20125.46,"created":1655708342,"updated":1655708399,"id":"62b01ab6b8fbab485628dfd5"},{"market_id":15,"type":"2","time":1655708400,"value":20143.51,"open":20143.51,"high":20155.43,"low":20118.42,"created":1655708403,"updated":1655708459,"id":"62b01af3b8fbab485628dfed"},{"market_id":15,"type":"2","time":1655708460,"value":20113.79,"open":20143.51,"high":20143.51,"low":20111.42,"created":1655708460,"updated":1655708518,"id":"62b01b2cb8fbab485628e027"},{"market_id":15,"type":"2","time":1655708520,"value":20110.46,"open":20111.03,"high":20128.33,"low":20104.15,"created":1655708521,"updated":1655708578,"id":"62b01b69b8fbab485628e044"},{"market_id":15,"type":"2","time":1655708580,"value":20104.54,"open":20106.66,"high":20124.12,"low":20103.09,"created":1655708582,"updated":1655708638,"id":"62b01ba6b8fbab485628e058"},{"market_id":15,"type":"2","time":1655708640,"value":20095.98,"open":20104.54,"high":20104.66,"low":20091.95,"created":1655708641,"updated":1655708698,"id":"62b01be1b8fbab485628e06d"},{"market_id":15,"type":"2","time":1655708700,"value":20063.72,"open":20099.05,"high":20099.05,"low":20063.71,"created":1655708701,"updated":1655708759,"id":"62b01c1db8fbab485628e083"},{"market_id":15,"type":"2","time":1655708760,"value":20040.86,"open":20057.1,"high":20058.6,"low":20040.33,"created":1655708760,"updated":1655708819,"id":"62b01c58b8fbab485628e0bc"},{"market_id":15,"type":"2","time":1655708820,"value":20020.97,"open":20027.6,"high":20047.55,"low":20005.03,"created":1655708822,"updated":1655708878,"id":"62b01c96b8fbab485628e0d8"},{"market_id":15,"type":"2","time":1655708880,"value":20003.16,"open":20012.39,"high":20021.38,"low":19990.04,"created":1655708881,"updated":1655708938,"id":"62b01cd1b8fbab485628e0ec"},{"market_id":15,"type":"2","time":1655708940,"value":20029.21,"open":20000,"high":20040.83,"low":19996.2,"created":1655708941,"updated":1655708997,"id":"62b01d0db8fbab485628e101"},{"market_id":15,"type":"2","time":1655709000,"value":20035.88,"open":20026.08,"high":20044.98,"low":20022.57,"created":1655709000,"updated":1655709059,"id":"62b01d48b8fbab485628e116"},{"market_id":15,"type":"2","time":1655709060,"value":20052.66,"open":20035.88,"high":20056.95,"low":20035.88,"created":1655709060,"updated":1655709119,"id":"62b01d843cab9179fa713299"},{"market_id":15,"type":"2","time":1655709120,"value":20012.17,"open":20018.35,"high":20057.14,"low":20012.02,"created":1655709122,"updated":1655709179,"id":"62b01dc23cab9179fa7132b4"},{"market_id":15,"type":"2","time":1655709180,"value":20003.25,"open":20001.44,"high":20010.58,"low":19988.92,"created":1655709181,"updated":1655709237,"id":"62b01dfd3cab9179fa7132c8"},{"market_id":15,"type":"2","time":1655709240,"value":20019.09,"open":20003.25,"high":20024.38,"low":20001.44,"created":1655709241,"updated":1655709300,"id":"62b01e393cab9179fa7132dd"},{"market_id":15,"type":"2","time":1655709300,"value":19980.39,"open":19980.39,"high":20024.97,"low":19976.08,"created":1655709302,"updated":1655709359,"id":"62b01e763cab9179fa7132f3"},{"market_id":15,"type":"2","time":1655709360,"value":19943.09,"open":19980.39,"high":19983.67,"low":19943.09,"created":1655709360,"updated":1655709418,"id":"62b01eb03cab9179fa71332b"},{"market_id":15,"type":"2","time":1655709420,"value":19949.57,"open":19948.87,"high":19954.06,"low":19933.27,"created":1655709421,"updated":1655709478,"id":"62b01eed3cab9179fa713349"},{"market_id":15,"type":"2","time":1655709480,"value":19966.91,"open":19954.06,"high":19974.58,"low":19954.06,"created":1655709481,"updated":1655709537,"id":"62b01f293cab9179fa71335d"},{"market_id":15,"type":"2","time":1655709540,"value":19984.53,"open":19966.91,"high":19995.33,"low":19966.9,"created":1655709540,"updated":1655709597,"id":"62b01f643cab9179fa713372"},{"market_id":15,"type":"2","time":1655709600,"value":19971.78,"open":19984.52,"high":19991.96,"low":19969.09,"created":1655709601,"updated":1655709659,"id":"62b01fa13cab9179fa713386"},{"market_id":15,"type":"2","time":1655709660,"value":19991.14,"open":19971.78,"high":19993.93,"low":19969.19,"created":1655709660,"updated":1655709718,"id":"62b01fdc3cab9179fa7133c0"},{"market_id":15,"type":"2","time":1655709720,"value":19988.74,"open":19988.55,"high":19999.99,"low":19988.55,"created":1655709720,"updated":1655709777,"id":"62b020183cab9179fa7133db"},{"market_id":15,"type":"2","time":1655709780,"value":19945.56,"open":19938.76,"high":19988.74,"low":19913.65,"created":1655709781,"updated":1655709837,"id":"62b020553cab9179fa7133ec"},{"market_id":15,"type":"2","time":1655709840,"value":19956.55,"open":19956.56,"high":19979.01,"low":19937.49,"created":1655709840,"updated":1655709897,"id":"62b020903cab9179fa7133fe"},{"market_id":15,"type":"2","time":1655709900,"value":19928.58,"open":19960.82,"high":19976.31,"low":19928.58,"created":1655709900,"updated":1655709959,"id":"62b020cc3cab9179fa713412"},{"market_id":15,"type":"2","time":1655709960,"value":19934.88,"open":19928.58,"high":19957.65,"low":19928.58,"created":1655709960,"updated":1655710018,"id":"62b021083cab9179fa71344b"},{"market_id":15,"type":"2","time":1655710020,"value":19957.75,"open":19934.88,"high":19967.17,"low":19927.41,"created":1655710021,"updated":1655710078,"id":"62b021453cab9179fa713467"},{"market_id":15,"type":"2","time":1655710080,"value":19952.42,"open":19938.55,"high":19973.31,"low":19937.17,"created":1655710081,"updated":1655710138,"id":"62b021813cab9179fa71347b"},{"market_id":15,"type":"2","time":1655710140,"value":19949.92,"open":19952.31,"high":19959.65,"low":19939.49,"created":1655710142,"updated":1655710197,"id":"62b021be3cab9179fa713491"},{"market_id":15,"type":"2","time":1655710200,"value":19967.66,"open":19948.3,"high":19977.48,"low":19934.35,"created":1655710200,"updated":1655710259,"id":"62b021f83cab9179fa7134a5"},{"market_id":15,"type":"2","time":1655710260,"value":19989.98,"open":19967.66,"high":19990.24,"low":19967.66,"created":1655710260,"updated":1655710319,"id":"62b022343cab9179fa7134e0"},{"market_id":15,"type":"2","time":1655710320,"value":19982.86,"open":19982.85,"high":19990.83,"low":19978.44,"created":1655710323,"updated":1655710378,"id":"62b022733cab9179fa7134fd"},{"market_id":15,"type":"2","time":1655710380,"value":19997.58,"open":19999.99,"high":20000,"low":19979.03,"created":1655710382,"updated":1655710439,"id":"62b022ae3cab9179fa713510"},{"market_id":15,"type":"2","time":1655710440,"value":19991.57,"open":19991.56,"high":20005.77,"low":19986.36,"created":1655710443,"updated":1655710498,"id":"62b022eb3cab9179fa713524"},{"market_id":15,"type":"2","time":1655710500,"value":19994.28,"open":19994.28,"high":20001.74,"low":19980.01,"created":1655710501,"updated":1655710559,"id":"62b023253cab9179fa713539"},{"market_id":15,"type":"2","time":1655710560,"value":19899.01,"open":19983.06,"high":19994.43,"low":19899.01,"created":1655710560,"updated":1655710620,"id":"62b023603cab9179fa713573"},{"market_id":15,"type":"2","time":1655710620,"value":19883.76,"open":19893.14,"high":19920.36,"low":19883.76,"created":1655710623,"updated":1655710680,"id":"62b0239f3cab9179fa71358f"},{"market_id":15,"type":"2","time":1655710680,"value":19897.09,"open":19892.95,"high":19913.72,"low":19882.25,"created":1655710684,"updated":1655710739,"id":"62b023dc3cab9179fa7135a2"},{"market_id":15,"type":"2","time":1655710740,"value":19934.13,"open":19901.23,"high":19948.87,"low":19901.23,"created":1655710741,"updated":1655710799,"id":"62b024153cab9179fa7135b6"},{"market_id":15,"type":"2","time":1655710800,"value":19910.82,"open":19910.82,"high":19943.9,"low":19900.89,"created":1655710803,"updated":1655710859,"id":"62b024533cab9179fa7135cd"},{"market_id":15,"type":"2","time":1655710860,"value":19913.83,"open":19918.48,"high":19918.48,"low":19893.96,"created":1655710860,"updated":1655710918,"id":"62b0248c37b0277bfa7ca2be"},{"market_id":15,"type":"2","time":1655710920,"value":19899.67,"open":19893.9,"high":19914.04,"low":19893.9,"created":1655710922,"updated":1655710979,"id":"62b024ca37b0277bfa7ca2db"},{"market_id":15,"type":"2","time":1655710980,"value":19921.56,"open":19919.99,"high":19921.56,"low":19892.62,"created":1655710981,"updated":1655711038,"id":"62b0250537b0277bfa7ca2ef"},{"market_id":15,"type":"2","time":1655711040,"value":19903.08,"open":19903.08,"high":19919.98,"low":19888.02,"created":1655711041,"updated":1655711098,"id":"62b0254137b0277bfa7ca305"},{"market_id":15,"type":"2","time":1655711100,"value":19914.99,"open":19914.99,"high":19921.25,"low":19886.83,"created":1655711101,"updated":1655711159,"id":"62b0257d37b0277bfa7ca318"},{"market_id":15,"type":"2","time":1655711160,"value":19890.41,"open":19915.68,"high":19919.33,"low":19890.41,"created":1655711160,"updated":1655711217,"id":"62b025b837b0277bfa7ca352"},{"market_id":15,"type":"2","time":1655711220,"value":19907.89,"open":19895.1,"high":19918.29,"low":19888.42,"created":1655711221,"updated":1655711279,"id":"62b025f537b0277bfa7ca36f"},{"market_id":15,"type":"2","time":1655711280,"value":19936.11,"open":19932,"high":19936.11,"low":19896.96,"created":1655711282,"updated":1655711338,"id":"62b0263237b0277bfa7ca383"},{"market_id":15,"type":"2","time":1655711340,"value":19933.79,"open":19925.26,"high":19958.59,"low":19925.26,"created":1655711341,"updated":1655711398,"id":"62b0266d37b0277bfa7ca397"},{"market_id":15,"type":"2","time":1655711400,"value":19958.8,"open":19950.98,"high":19958.8,"low":19932.17,"created":1655711402,"updated":1655711459,"id":"62b026aa37b0277bfa7ca3ab"},{"market_id":15,"type":"2","time":1655711460,"value":19966.79,"open":19958.8,"high":19971.2,"low":19953.36,"created":1655711460,"updated":1655711518,"id":"62b026e437b0277bfa7ca3e4"},{"market_id":15,"type":"2","time":1655711520,"value":19953.62,"open":19959.52,"high":19976.88,"low":19953.61,"created":1655711521,"updated":1655711578,"id":"62b0272137b0277bfa7ca400"},{"market_id":15,"type":"2","time":1655711580,"value":19958.16,"open":19949.17,"high":19969.08,"low":19944.81,"created":1655711580,"updated":1655711637,"id":"62b0275c37b0277bfa7ca412"},{"market_id":15,"type":"2","time":1655711640,"value":19957.94,"open":19958.16,"high":19965.3,"low":19952.09,"created":1655711640,"updated":1655711699,"id":"62b0279837b0277bfa7ca425"},{"market_id":15,"type":"2","time":1655711700,"value":19983.66,"open":19983.66,"high":19987.38,"low":19955.59,"created":1655711702,"updated":1655711759,"id":"62b027d637b0277bfa7ca43b"},{"market_id":15,"type":"2","time":1655711760,"value":19985.87,"open":19983.66,"high":19985.88,"low":19975.68,"created":1655711760,"updated":1655711818,"id":"62b0281037b0277bfa7ca474"},{"market_id":15,"type":"2","time":1655711820,"value":20036.08,"open":20042.3,"high":20042.3,"low":19985.88,"created":1655711821,"updated":1655711878,"id":"62b0284d37b0277bfa7ca48c"},{"market_id":15,"type":"2","time":1655711880,"value":20071.3,"open":20071.3,"high":20072.72,"low":20024.81,"created":1655711882,"updated":1655711938,"id":"62b0288a37b0277bfa7ca4a0"},{"market_id":15,"type":"2","time":1655711940,"value":20055.79,"open":20055.59,"high":20062.17,"low":20047.23,"created":1655711942,"updated":1655711998,"id":"62b028c637b0277bfa7ca4b4"},{"market_id":15,"type":"2","time":1655712000,"value":20085.31,"open":20075.44,"high":20095.6,"low":20066.9,"created":1655712001,"updated":1655712059,"id":"62b0290137b0277bfa7ca4c6"},{"market_id":15,"type":"2","time":1655712060,"value":20056.97,"open":20085.31,"high":20107.18,"low":20056.97,"created":1655712060,"updated":1655712117,"id":"62b0293c37b0277bfa7ca500"},{"market_id":15,"type":"2","time":1655712120,"value":20066.31,"open":20045.69,"high":20075.12,"low":20044.7,"created":1655712121,"updated":1655712179,"id":"62b0297937b0277bfa7ca514"},{"market_id":15,"type":"2","time":1655712180,"value":20042.97,"open":20048.08,"high":20057.32,"low":20040.01,"created":1655712183,"updated":1655712239,"id":"62b029b737b0277bfa7ca527"},{"market_id":15,"type":"2","time":1655712240,"value":20053.13,"open":20046.73,"high":20053.13,"low":20037.52,"created":1655712242,"updated":1655712298,"id":"62b029f237b0277bfa7ca53b"},{"market_id":15,"type":"2","time":1655712300,"value":20035.18,"open":20058.09,"high":20058.09,"low":20025.38,"created":1655712300,"updated":1655712359,"id":"62b02a2c37b0277bfa7ca54f"},{"market_id":15,"type":"2","time":1655712360,"value":20048.22,"open":20035.18,"high":20051.84,"low":20035.18,"created":1655712360,"updated":1655712419,"id":"62b02a6837b0277bfa7ca588"},{"market_id":15,"type":"2","time":1655712420,"value":20072.53,"open":20062.32,"high":20072.53,"low":20041.58,"created":1655712422,"updated":1655712477,"id":"62b02aa637b0277bfa7ca59b"},{"market_id":15,"type":"2","time":1655712480,"value":20139.01,"open":20090.85,"high":20139.01,"low":20090.85,"created":1655712481,"updated":1655712538,"id":"62b02ae137b0277bfa7ca5b0"},{"market_id":15,"type":"2","time":1655712540,"value":20189.54,"open":20189.54,"high":20231.62,"low":20162.82,"created":1655712541,"updated":1655712596,"id":"62b02b1d37b0277bfa7ca5c4"},{"market_id":15,"type":"2","time":1655712600,"value":20208.01,"open":20214.17,"high":20214.17,"low":20174.49,"created":1655712604,"updated":1655712659,"id":"62b02b5c980c6b0f745ebab3"},{"market_id":15,"type":"2","time":1655712660,"value":20191.84,"open":20208.01,"high":20236.07,"low":20173.14,"created":1655712660,"updated":1655712719,"id":"62b02b94980c6b0f745ebaec"},{"market_id":15,"type":"2","time":1655712720,"value":20223.71,"open":20223.71,"high":20270.01,"low":20184.89,"created":1655712723,"updated":1655712779,"id":"62b02bd3980c6b0f745ebb0a"},{"market_id":15,"type":"2","time":1655712780,"value":20326.3,"open":20339.17,"high":20392.33,"low":20232.54,"created":1655712781,"updated":1655712837,"id":"62b02c0d980c6b0f745ebb1f"},{"market_id":15,"type":"2","time":1655712840,"value":20297.57,"open":20293.56,"high":20369.87,"low":20293.56,"created":1655712840,"updated":1655712899,"id":"62b02c48980c6b0f745ebb34"},{"market_id":15,"type":"2","time":1655712900,"value":20293.52,"open":20293.52,"high":20336.42,"low":20282.91,"created":1655712901,"updated":1655712959,"id":"62b02c85980c6b0f745ebb4b"},{"market_id":15,"type":"2","time":1655712960,"value":20311.41,"open":20291.88,"high":20311.41,"low":20265.5,"created":1655712960,"updated":1655713017,"id":"62b02cc0980c6b0f745ebb86"},{"market_id":15,"type":"2","time":1655713020,"value":20341.3,"open":20311.41,"high":20360.43,"low":20295.16,"created":1655713021,"updated":1655713078,"id":"62b02cfd980c6b0f745ebb9f"},{"market_id":15,"type":"2","time":1655713080,"value":20362.85,"open":20341.3,"high":20370.46,"low":20325.19,"created":1655713080,"updated":1655713138,"id":"62b02d38980c6b0f745ebbb4"},{"market_id":15,"type":"2","time":1655713140,"value":20429.68,"open":20366.9,"high":20465.24,"low":20366.9,"created":1655713140,"updated":1655713198,"id":"62b02d74980c6b0f745ebbca"},{"market_id":15,"type":"2","time":1655713200,"value":20381.31,"open":20419.23,"high":20421.96,"low":20368.48,"created":1655713200,"updated":1655713259,"id":"62b02db0980c6b0f745ebbde"},{"market_id":15,"type":"2","time":1655713260,"value":20367.14,"open":20381.31,"high":20385.71,"low":20348.66,"created":1655713260,"updated":1655713318,"id":"62b02dec980c6b0f745ebc16"},{"market_id":15,"type":"2","time":1655713320,"value":20374.9,"open":20373.85,"high":20392.5,"low":20367.19,"created":1655713320,"updated":1655713379,"id":"62b02e28980c6b0f745ebc2b"},{"market_id":15,"type":"2","time":1655713380,"value":20391.96,"open":20391.96,"high":20398.99,"low":20367.19,"created":1655713382,"updated":1655713438,"id":"62b02e66980c6b0f745ebc40"},{"market_id":15,"type":"2","time":1655713440,"value":20368.83,"open":20371.99,"high":20375.44,"low":20352.63,"created":1655713441,"updated":1655713498,"id":"62b02ea1980c6b0f745ebc55"},{"market_id":15,"type":"2","time":1655713500,"value":20366.59,"open":20368.83,"high":20368.86,"low":20341.45,"created":1655713501,"updated":1655713559,"id":"62b02edd980c6b0f745ebc6a"},{"market_id":15,"type":"2","time":1655713560,"value":20415.41,"open":20366.59,"high":20424.77,"low":20362.86,"created":1655713560,"updated":1655713620,"id":"62b02f18980c6b0f745ebca4"},{"market_id":15,"type":"2","time":1655713620,"value":20406.64,"open":20406.64,"high":20429.68,"low":20400,"created":1655713623,"updated":1655713679,"id":"62b02f57980c6b0f745ebcc1"},{"market_id":15,"type":"2","time":1655713680,"value":20420.53,"open":20407.78,"high":20420.53,"low":20392.12,"created":1655713683,"updated":1655713738,"id":"62b02f93980c6b0f745ebcd4"},{"market_id":15,"type":"2","time":1655713740,"value":20446.54,"open":20454.43,"high":20454.43,"low":20420.53,"created":1655713741,"updated":1655713798,"id":"62b02fcd980c6b0f745ebce7"},{"market_id":15,"type":"2","time":1655713800,"value":20389.19,"open":20450.55,"high":20459.58,"low":20389.19,"created":1655713801,"updated":1655713859,"id":"62b03009980c6b0f745ebcfb"},{"market_id":15,"type":"2","time":1655713860,"value":20436.48,"open":20389.19,"high":20436.48,"low":20382.19,"created":1655713861,"updated":1655713919,"id":"62b03045980c6b0f745ebd37"},{"market_id":15,"type":"2","time":1655713920,"value":20467.35,"open":20470.7,"high":20470.7,"low":20408.34,"created":1655713921,"updated":1655713979,"id":"62b03081980c6b0f745ebd4f"},{"market_id":15,"type":"2","time":1655713980,"value":20461.33,"open":20463.4,"high":20502.35,"low":20461.33,"created":1655713982,"updated":1655714037,"id":"62b030be980c6b0f745ebd63"},{"market_id":15,"type":"2","time":1655714040,"value":20474.11,"open":20459.08,"high":20493.83,"low":20453.35,"created":1655714040,"updated":1655714098,"id":"62b030f8980c6b0f745ebd75"},{"market_id":15,"type":"2","time":1655714100,"value":20481.83,"open":20478.36,"high":20481.83,"low":20452.23,"created":1655714101,"updated":1655714160,"id":"62b03135980c6b0f745ebd88"},{"market_id":15,"type":"2","time":1655714160,"value":20547.89,"open":20545.86,"high":20554.2,"low":20472.37,"created":1655714161,"updated":1655714218,"id":"62b03171980c6b0f745ebdc1"},{"market_id":15,"type":"2","time":1655714220,"value":20554.28,"open":20562.73,"high":20562.73,"low":20511.44,"created":1655714221,"updated":1655714279,"id":"62b031ad980c6b0f745ebdd3"},{"market_id":15,"type":"2","time":1655714280,"value":20566.88,"open":20563.38,"high":20577.58,"low":20525.79,"created":1655714282,"updated":1655714340,"id":"62b031ea980c6b0f745ebde5"}]'
+    let chartData = JSON.parse(json)
+    let tradeData = []
+
+    let chart, timeStamp, first = true
+
+    function sendData() {
+      if (data.length > 0 && !chartData.length && type !== '1') {
+        timeStamp = data[data.length - 1].time - data[data.length - 2].time
+      } else if (data.length > 0) {
+        const lastWs = data[data.length - 1]
+        const lastWsTime = lastWs.time
+        const lastChart = chartData[chartData.length - 1]
+        const lastChartTime = lastChart[4]
+        if (lastWs.time - lastChartTime < timeStamp) {
+          // realtime
+          console.log(JSON.stringify(data))
+          realTime(data)
+        } else if (lastWs.time - lastChartTime >= timeStamp) {
+          // update
+          console.log(data)
+          update(data)
+        }
+      }
+    }
+
+    function firstLoad(data) {
+      // first load data
+      const promise = new Promise(resolve => {
+        chartData = data.map(item => [parseFloat(item.open * 10000000), parseFloat(item.value * 10000000), parseFloat(item.low * 10000000), parseFloat(item.high * 10000000), item.time])
+        // chartData = data.map(item => [parseFloat(item.open), parseFloat(item.value), parseFloat(item.low), parseFloat(item.high), item.time])
+        resolve()
+      })
+      promise.then(() => {
+        const fakeTrade = []
+        for (let i = 0; i < chartData.length; i++) {
+          fakeTrade.push(parseFloat(Math.random() * 300 + 200).toFixed(5))
+        }
+        tradeData = fakeTrade
+      })
+        .then(() => {
+          // run pixi
+          chart = new Chart('chart', null, option)
+          chart.startChart(chartData, tradeData)
+        })
+        .then(() => {
+          init()
+        })
+    }
+
+    firstLoad(chartData)
+
+
+    function realTime(data) {
+      const lastChart = chartData[chartData.length - 1]
+      const lastWs = data[data.length - 1]
+
+      lastChart[2] = parseFloat(lastWs.value) < lastChart[2] ? parseFloat(lastWs.value) * 10000000 : lastChart[2]
+      lastChart[3] = parseFloat(lastWs.value) > lastChart[3] ? parseFloat(lastWs.value) * 10000000 : lastChart[3]
+
+      // console.log(lastChart)
+      // const realChartValue = [lastChart[0], parseFloat(lastWs.value), lastChart[2], lastChart[3], lastWs.time]
+      const realChartValue = [lastChart[0], parseFloat(lastWs.value) * 10000000, lastChart[2], lastChart[3], lastWs.time]
+
+      chartData.pop()
+      chartData.push(realChartValue)
+
+      // const tradeValue = tradeData[tradeData.length - 1]
+      // const realTradeValue = (parseFloat(tradeValue) + parseFloat(Math.random() * 2)).toFixed(5)
+      // tradeData.pop()
+      // tradeData.push(realTradeValue)
+
+      if (active) {
+        chartRealtime()
+      }
+    }
+
+    function update(data) {
+      const lastWs = data[data.length - 1]
+      // const updateChartValue = [parseFloat(lastWs.open), parseFloat(lastWs.value), parseFloat(lastWs.low), parseFloat(lastWs.high), lastWs.time]
+      const updateChartValue = [parseFloat(lastWs.open * 10000000), parseFloat(lastWs.value * 10000000), parseFloat(lastWs.low * 10000000), parseFloat(lastWs.high * 10000000), lastWs.time]
+      const updateTradeValue = parseFloat(Math.random() * 100 + 100).toFixed(5)
+
+      chartData.push(updateChartValue)
+      tradeData.push(updateTradeValue)
+
+      updated = false
+
+      if (active) {
+        chartUpdate()
+      }
+    }
+  </script>
+  <!-- data over -->
+</body>
+
+</html>
